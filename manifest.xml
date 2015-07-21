@@ -1,0 +1,16 @@
+<package>
+  <description brief="imu_publisher">
+
+     imu_publisher
+
+  </description>
+  <author>root</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/imu_publisher</url>
+  <depend package="roscpp"/>
+  <depend package="std_msgs"/>
+  <depend package="sensor_msgs"/>
+</package>
+
+
