@@ -1,42 +1,77 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
 
-#define USB_PATH "/dev/ttyACM0"
+#define USB_PATH "/dev/ttyACM1"
 #define READ_RATE 10
+#define GRAVITY 9.81
 
 int fd;
+
+bool readFromDevice(char* command,char* response) {
+	*response = ' ';
+	ssize_t size = write(fd, command, strlen(command));
+	if (size < 3) return false;
+	while (1) {
+		size = read(fd, response, 1);
+		if (size < 1) return false;
+		if ((*response) == '\n')
+			break;
+		response++;
+	}
+	*response = '\0';
+	return true;
+}
 
 void process(void* data) {
 	sensor_msgs::Imu *msg = (sensor_msgs::Imu*) data;
 	char buffer[64];
-	char *byte = buffer;
-	*byte = ' ';
-	ssize_t size = write(fd, ":0\n", 3);
-	if (size < 3) return;
-	while (1) {
-		size = read(fd, byte, 1);
-		if (size < 1) return;
-		if ((*byte) == '\n')
-			break;
+
+	//get orientation
+	if (readFromDevice(":0\n",buffer)) {
+		char *byte = buffer;
+		double x = strtod(byte,&byte);
 		byte++;
+		double y = strtod(byte,&byte);
+		byte++;
+		double z = strtod(byte,&byte);
+		byte++;
+		double w = strtod(byte,&byte);
+		msg->orientation.x = x;
+		msg->orientation.y = y;
+		msg->orientation.z = z;
+		msg->orientation.w = w;
 	}
-	*byte = '\0';
-	byte = buffer;
-	double x = strtod(byte,&byte);
-	byte++;
-	double y = strtod(byte,&byte);
-	byte++;
-	double z = strtod(byte,&byte);
-	byte++;
-	double w = strtod(byte,&byte);
-	msg->orientation.x = x;
-	msg->orientation.y = y;
-	msg->orientation.z = z;
-	msg->orientation.w = w;
+
+	//get gyro data
+	if (readFromDevice(":38\n",buffer)) {
+		char *byte = buffer;
+		double x = strtod(byte,&byte);
+		byte++;
+		double y = strtod(byte,&byte);
+		byte++;
+		double z = strtod(byte,&byte);
+		msg->angular_velocity.x = x;
+		msg->angular_velocity.y = y;
+		msg->angular_velocity.z = z;
+	}
+
+	//get accelerometer data
+	if (readFromDevice(":39\n",buffer)) {
+		char *byte = buffer;
+		double x = strtod(byte,&byte) * GRAVITY;
+		byte++;
+		double y = strtod(byte,&byte) * GRAVITY;
+		byte++;
+		double z = strtod(byte,&byte) * GRAVITY;
+		msg->linear_acceleration.x = x;
+		msg->linear_acceleration.y = y;
+		msg->linear_acceleration.z = z;
+	}
 }
 
 int main(int argc,char* argv[]) {
