@@ -6,17 +6,20 @@
 #include <sensor_msgs/Imu.h>
 
 #define USB_PATH "/dev/ttyACM0"
-#define READ_RATE 1
+#define READ_RATE 10
 
 int fd;
 
-void *process(void* data) {
+void process(void* data) {
+	sensor_msgs::Imu *msg = (sensor_msgs::Imu*) data;
 	char buffer[64];
 	char *byte = buffer;
 	*byte = ' ';
-	write(fd, ":0\n", 3);
+	ssize_t size = write(fd, ":0\n", 3);
+	if (size < 3) return;
 	while (1) {
-		ssize_t size = read(fd, byte, 1);
+		size = read(fd, byte, 1);
+		if (size < 1) return;
 		if ((*byte) == '\n')
 			break;
 		byte++;
@@ -30,7 +33,10 @@ void *process(void* data) {
 	double z = strtod(byte,&byte);
 	byte++;
 	double w = strtod(byte,&byte);
-	printf("%f %f %f %f\n",x,y,z,w);
+	msg->orientation.x = x;
+	msg->orientation.y = y;
+	msg->orientation.z = z;
+	msg->orientation.w = w;
 }
 
 int main(int argc,char* argv[]) {
@@ -45,10 +51,7 @@ int main(int argc,char* argv[]) {
 		return 1;
 	}
 
-	int interval = 1000000 / READ_RATE;
 	while (ros::ok()) {
-		//process(NULL);
-		//usleep(interval);
 		sensor_msgs::Imu msg;
 		msg.header.frame_id = "/imu";
 		process(&msg);
