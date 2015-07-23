@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <ros/ros.h>
@@ -11,6 +12,7 @@
 #define GRAVITY 9.81
 
 int fd;
+unsigned int count = 0;
 
 bool readFromDevice(char* command,char* response) {
 	*response = ' ';
@@ -30,6 +32,14 @@ bool readFromDevice(char* command,char* response) {
 void process(void* data) {
 	sensor_msgs::Imu *msg = (sensor_msgs::Imu*) data;
 	char buffer[64];
+
+	//write header
+	msg->header.seq = count++;
+	struct timespec clock;
+	clock_gettime(CLOCK_REALTIME,&clock);
+	msg->header.stamp.sec = clock.tv_sec;
+	msg->header.stamp.nsec = clock.tv_nsec;
+	msg->header.frame_id = "/imu";
 
 	//get orientation
 	if (readFromDevice(":0\n",buffer)) {
@@ -88,7 +98,6 @@ int main(int argc,char* argv[]) {
 
 	while (ros::ok()) {
 		sensor_msgs::Imu msg;
-		msg.header.frame_id = "/imu";
 		process(&msg);
 		pub.publish(msg);
 		ros::spinOnce();
